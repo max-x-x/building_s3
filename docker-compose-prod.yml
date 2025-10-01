@@ -1,6 +1,6 @@
 services:
   minio:
-    image: minio/minio:2025-04-22T22-12-26Z
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: building_s3_minio
     restart: always
     environment:
