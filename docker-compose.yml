@@ -1,0 +1,95 @@
+version: "3.9"
+
+networks:
+  s3:
+    driver: bridge
+
+volumes:
+  data5:
+  data6:
+  data7:
+  data18:
+
+secrets:
+  minio_root_user:       { file: ./secrets/minio_root_user }
+  minio_root_password:   { file: ./secrets/minio_root_password }
+  app_access_key:        { file: ./secrets/app_access_key }
+  app_secret_key:        { file: ./secrets/app_secret_key }
+
+services:
+  minio:
+    image: ${MINIO_IMAGE}
+    container_name: building_s3_minio
+    restart: always
+    env_file: .env
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: dhfjshfjsdfk
+      MINIO_REGION_NAME: ${MINIO_REGION}
+#      MINIO_PROMETHEUS_AUTH_TYPE: "jwt"
+      MINIO_UPDATE: "off"
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_API_CORS_ALLOW_ORIGIN}
+      MINIO_API_CORS_ALLOW_METHODS: ${MINIO_API_CORS_ALLOW_METHODS}
+      MINIO_API_CORS_ALLOW_HEADERS: ${MINIO_API_CORS_ALLOW_HEADERS}
+    command: >
+      server
+      --address :${MINIO_S3_PORT}
+      --console-address :${MINIO_CONSOLE_PORT}
+      /data18
+    volumes:
+      - data18:/data18
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${MINIO_S3_PORT}/minio/health/ready"]
+      interval: 20s
+      timeout: 5s
+      retries: 15
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    logging:
+      driver: "json-file"
+      options: { max-size: "10m", max-file: "5" }
+    networks: [s3]
+    ports:
+      - "9001:9001"
+      - "9000:9000"
+
+#  mc-init:
+#    image: ${MC_IMAGE}
+#    container_name: building_s3_minio-mc-init
+#    depends_on:
+#      minio: { condition: service_healthy }
+#    env_file: .env
+#    entrypoint: ["/bin/sh", "/init/init.sh"]
+#    volumes:
+#      - ./init:/init:ro
+#    networks: [s3]
+#    restart: "no"
+#    secrets:
+#      - minio_root_user
+#      - minio_root_password
+#      - app_access_key
+#      - app_secret_key
+
+  nginx-s3:
+    build:
+      context: nginx-s3
+      dockerfile: Dockerfile
+    container_name: building_s3_minio-nginx-s3
+    restart: unless-stopped
+    depends_on: [minio]
+    # 8080 на хосте, чтобы не конфликтовать с твоим «основным» Nginx на 80/443
+    ports:
+      - "8080:80"
+    networks: [s3]
+
+  nginx-console:
+    build:
+      context: nginx-console
+      dockerfile: Dockerfile
+    container_name: building_s3_minio-nginx-console
+    restart: unless-stopped
+    depends_on: [ minio ]
+    # 8080 на хосте, чтобы не конфликтовать с твоим «основным» Nginx на 80/443
+    ports:
+      - "8081:80"
+    networks: [ s3 ]

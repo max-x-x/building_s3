@@ -1,0 +1,9 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-noncurrent-30d",
+      "Status": "Enabled",
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    }
+  ]
+}
